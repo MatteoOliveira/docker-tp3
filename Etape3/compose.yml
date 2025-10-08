@@ -1,0 +1,44 @@
+
+services:
+  data:
+    image: mariadb:11.4
+    environment:
+      MARIADB_ROOT_PASSWORD: "root"
+      # Pas besoin de MARIADB_DATABASE : create.sql initialise déjà votre base
+    volumes:
+      - ./sql:/docker-entrypoint-initdb.d:ro
+      - dbdata:/var/lib/mysql
+    networks: [tp3net]
+    healthcheck:
+      test: ["CMD-SHELL", "mariadb-admin ping -proot --silent || exit 1"]
+      interval: 3s
+      timeout: 2s
+      retries: 20
+
+  script:
+    build:
+      context: .
+      dockerfile: Dockerfile   # Dockerfile avec 'docker-php-ext-install mysqli'
+    volumes:
+      - ./src:/app            # ton code
+    depends_on:
+      data:
+        condition: service_healthy
+    networks: [tp3net]
+
+  http:
+    image: nginx:1.29
+    ports:
+      - "8080:80"
+    volumes:
+      - ./config:/etc/nginx/conf.d:ro
+      - ./src:/app:ro
+    depends_on:
+      - script
+    networks: [tp3net]
+
+volumes:
+  dbdata:
+
+networks:
+  tp3net:
